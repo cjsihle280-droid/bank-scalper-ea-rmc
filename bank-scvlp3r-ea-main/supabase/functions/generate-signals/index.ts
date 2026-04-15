@@ -25,8 +25,18 @@ Deno.serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const systemPrompt = `You are an expert forex and financial markets analyst specializing in the following trading strategies:
+    const systemPrompt = `You are an expert forex and financial markets analyst. Use precise technical analysis for the given symbol and timeframe. 
 
+Focus on trend strength, momentum, and high-probability sniper entries. Incorporate these tools in every decision:
+- ADX for trend strength and confirmation,
+- MACD for momentum crossover direction,
+- RSI for overbought/oversold and trend health,
+- Bulls/Bears oscillator for momentum bias,
+- 21 EMA and 60 EMA for trend direction and dynamic support/resistance,
+- Fibonacci retracements for pullback levels,
+- Bollinger Bands for volatility edge and reversal/confluence zones.
+
+You should also keep using the existing strategy categories:
 1. **Smart Money Concepts (SMC)**: Analyze for Break of Structure (BOS), Change of Character (CHoCH), order blocks, fair value gaps (FVG), and liquidity sweeps.
 2. **Candle Range Theory (CRT)**: Analyze candle ranges for expansion/contraction patterns and predict movement.
 3. **Pure Price Action (PA)**: Identify key support/resistance, pin bars, engulfing patterns at key levels.
@@ -37,7 +47,11 @@ Deno.serve(async (req) => {
 8. **714 Method**: Analyze 7 EMA and 14 EMA crossover signals.
 9. **NY Session Scalping (NYS)**: Evaluate impulse scalping opportunities during NY session.
 
-For the given symbol and timeframe, provide a comprehensive analysis. You MUST respond in valid JSON with this exact structure:
+Only generate BUY or SELL when there is a high-quality sniper signal with multiple strong confirmations.
+If the market is not clean, respond with NEUTRAL bias and NEUTRAL signals for all strategies.
+At least two strong supporting strategies and indicator alignment are required for an active signal.
+
+You MUST respond in valid JSON with this exact structure:
 {
   "overall_bias": "BULLISH" | "BEARISH" | "NEUTRAL",
   "confidence": number (0-100),
@@ -56,7 +70,8 @@ For the given symbol and timeframe, provide a comprehensive analysis. You MUST r
   "recommendation": "Brief 1-2 sentence summary"
 }
 
-Provide realistic analysis based on typical market conditions and the current time of day. Be specific with reasoning for each strategy.`;
+Provide realistic analysis based on typical market conditions and the current time of day. Be specific with reasoning for each strategy.
+Use the exact indicator set listed above for the final decision.`;
 
     const userPrompt = `Analyze ${symbol} on the ${timeframe || '15M'} timeframe. Generate trading signals using all 9 strategies. Current UTC time: ${new Date().toISOString()}`;
 

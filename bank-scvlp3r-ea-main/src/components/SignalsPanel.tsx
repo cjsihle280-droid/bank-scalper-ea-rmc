@@ -21,9 +21,10 @@ interface SignalData {
 interface SignalsPanelProps {
   symbol: string;
   onBiasChange?: (bias: "BULLISH" | "BEARISH" | "NEUTRAL") => void;
+  onSignalsGenerated?: (data: SignalData) => void;
 }
 
-const SignalsPanel = ({ symbol, onBiasChange }: SignalsPanelProps) => {
+const SignalsPanel = ({ symbol, onBiasChange, onSignalsGenerated }: SignalsPanelProps) => {
   const [data, setData] = useState<SignalData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,9 @@ const SignalsPanel = ({ symbol, onBiasChange }: SignalsPanelProps) => {
       setData(result);
       if (result?.overall_bias && onBiasChange) {
         onBiasChange(result.overall_bias);
+      }
+      if (result && onSignalsGenerated) {
+        onSignalsGenerated(result);
       }
     } catch (e: any) {
       setError(e.message || "Failed to generate signals");

@@ -29,7 +29,12 @@ const TradingViewChart = memo(({ symbol }: TradingViewChartProps) => {
       calendar: false,
       support_host: "https://www.tradingview.com",
       studies: [
-        "MAExp@tv-basicstudies",
+        "EMA@tv-basicstudies",
+        "EMA@tv-basicstudies",
+        "ADX@tv-basicstudies",
+        "MACD@tv-basicstudies",
+        "RSI@tv-basicstudies",
+        "BollingerBands@tv-basicstudies",
       ],
       overrides: {
         "mainSeriesProperties.candleStyle.upColor": "#22c55e",

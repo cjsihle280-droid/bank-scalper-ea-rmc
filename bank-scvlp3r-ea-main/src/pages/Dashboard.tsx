@@ -14,6 +14,18 @@ const Dashboard = () => {
   const [showSignals, setShowSignals] = useState(true);
   const [showMT5, setShowMT5] = useState(true);
   const [currentBias, setCurrentBias] = useState<"BULLISH" | "BEARISH" | "NEUTRAL" | null>(null);
+  const [latestSignals, setLatestSignals] = useState<null | {
+    overall_bias: "BULLISH" | "BEARISH" | "NEUTRAL";
+    confidence: number;
+    signals: {
+      strategy_id: string;
+      signal: "BUY" | "SELL" | "NEUTRAL";
+      strength: "STRONG" | "MODERATE" | "WEAK";
+      reasoning: string;
+    }[];
+    key_levels: { support: number[]; resistance: number[] };
+    recommendation: string;
+  }>(null);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -92,12 +104,16 @@ const Dashboard = () => {
           <div className="flex w-80 shrink-0 flex-col border-l border-border">
             {showSignals && (
               <div className="border-b border-border" style={{ height: showMT5 || showStrategy ? "40%" : "100%" }}>
-                <SignalsPanel symbol={selectedSymbol} onBiasChange={setCurrentBias} />
+                <SignalsPanel
+                  symbol={selectedSymbol}
+                  onBiasChange={setCurrentBias}
+                  onSignalsGenerated={setLatestSignals}
+                />
               </div>
             )}
             {showMT5 && (
               <div className="border-b border-border" style={{ height: showSignals && showStrategy ? "30%" : showSignals || showStrategy ? "50%" : "100%" }}>
-                <MT5Panel symbol={selectedSymbol} bias={currentBias} recommendation={null} />
+                <MT5Panel symbol={selectedSymbol} bias={currentBias} signalData={latestSignals} />
               </div>
             )}
             {showStrategy && (

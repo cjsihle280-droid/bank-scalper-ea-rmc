@@ -5,7 +5,6 @@ interface SignalConfig {
   riskRewardRatio: number;
   slPercentage: number;
   enableNotifications: boolean;
-  analysisInterval: number; // in seconds
 }
 
 interface NotificationResult {
@@ -21,13 +20,28 @@ interface NotificationResult {
   };
 }
 
+interface Signal {
+  strategy_id: string;
+  signal: "BUY" | "SELL" | "NEUTRAL";
+  strength: "STRONG" | "MODERATE" | "WEAK";
+  reasoning: string;
+}
+
+interface SignalData {
+  overall_bias: "BULLISH" | "BEARISH" | "NEUTRAL";
+  confidence: number;
+  signals: Signal[];
+  key_levels: { support: number[]; resistance: number[] };
+  recommendation: string;
+}
+
 interface MT5PanelProps {
   symbol: string;
   bias: "BULLISH" | "BEARISH" | "NEUTRAL" | null;
-  recommendation: string | null;
+  signalData: SignalData | null;
 }
 
-const MT5Panel = ({ symbol, bias }: MT5PanelProps) => {
+const MT5Panel = ({ symbol, bias, signalData }: MT5PanelProps) => {
   const [config, setConfig] = useState<SignalConfig>(() => {
     const saved = localStorage.getItem("signal_config");
     return saved
@@ -36,123 +50,87 @@ const MT5Panel = ({ symbol, bias }: MT5PanelProps) => {
           riskRewardRatio: 2.0,
           slPercentage: 1.0,
           enableNotifications: true,
-          analysisInterval: 10, // Start with 10 seconds
         };
   });
   const [showSettings, setShowSettings] = useState(false);
   const [notifications, setNotifications] = useState<NotificationResult[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(true);
-  const [analysisInterval, setAnalysisInterval] = useState<NodeJS.Timeout | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [signalCount, setSignalCount] = useState(0);
+  const [lastSignalHash, setLastSignalHash] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem("signal_config", JSON.stringify(config));
   }, [config]);
 
-  // Request notification permission on mount
   useEffect(() => {
     if (config.enableNotifications && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
   }, [config.enableNotifications]);
 
-  // Auto-analysis effect - Start analyzing immediately on mount
   useEffect(() => {
-    console.log('🚀 MT5Panel mounted - Starting auto-analysis');
+    if (!signalData) return;
     setIsAnalyzing(true);
+    evaluateSignal(signalData);
+  }, [signalData, symbol]);
 
-    // Perform initial analysis immediately
-    performAutoAnalysis();
+  const evaluateSignal = async (data: SignalData) => {
+    console.log('🔎 Evaluating signals for', symbol, 'bias', data.overall_bias);
+    const direction = data.overall_bias === 'BULLISH' ? 'BUY' : data.overall_bias === 'BEARISH' ? 'SELL' : null;
+    const strongStrategies = data.signals.filter((sig) => sig.strength === 'STRONG');
+    const alignedStrong = direction ? strongStrategies.filter((sig) => sig.signal === direction) : [];
+    const goodSniperSignal = !!direction && data.confidence >= 70 && alignedStrong.length >= 2;
 
-    const interval = setInterval(() => {
-      performAutoAnalysis();
-    }, config.analysisInterval * 1000);
-
-    setAnalysisInterval(interval);
-    console.log(`⏰ Auto-analysis interval set to ${config.analysisInterval} seconds`);
-
-    return () => {
-      console.log('🛑 Cleaning up auto-analysis interval');
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [config.analysisInterval, bias, symbol]); // Include bias and symbol as dependencies
-
-  const performAutoAnalysis = async () => {
-    console.log('🔍 AUTO ANALYSIS RUNNING - Bias:', bias, 'Symbol:', symbol);
-    try {
-      const analysisResult = await analyzeSymbol(symbol);
-      console.log('📊 Analysis result:', analysisResult);
-      if (analysisResult.shouldNotify) {
-        console.log('🔔 Sending notification for signal');
-        await sendAutoNotification(analysisResult);
-      } else {
-        console.log('⏭️ No signal generated this cycle');
-      }
-    } catch (error) {
-      console.error('❌ Auto-analysis error:', error);
-    }
-  };
-
-  const analyzeSymbol = async (sym: string): Promise<{shouldNotify: boolean, direction: 'BUY' | 'SELL', confidence: number}> => {
-    console.log('🎯 Analyzing symbol:', sym, 'with bias:', bias);
-    // Always generate signals automatically - bias is optional enhancement
-    let direction: 'BUY' | 'SELL' = 'BUY';
-    let confidence = 50;
-    let shouldNotify = true; // Always notify for auto-analysis
-
-    if (bias === "BULLISH") {
-      direction = "BUY";
-      confidence = 75 + Math.random() * 20;
-      console.log('📈 Bullish bias detected - BUY signal');
-    } else if (bias === "BEARISH") {
-      direction = "SELL";
-      confidence = 75 + Math.random() * 20;
-      console.log('📉 Bearish bias detected - SELL signal');
-    } else {
-      // Generate random signals when no bias available
-      direction = Math.random() > 0.5 ? 'BUY' : 'SELL';
-      confidence = 60 + Math.random() * 25; // 60-85% confidence
-      console.log(`🎲 Auto-generating ${direction} signal (${confidence.toFixed(1)}% confidence)`);
+    const newHash = `${direction}-${data.confidence}-${alignedStrong.map((sig) => sig.strategy_id).sort().join(',')}`;
+    if (!goodSniperSignal) {
+      console.log('⚠️ No sniper-grade signal found for', symbol);
+      setIsAnalyzing(false);
+      return;
     }
 
-    return {
-      shouldNotify,
-      direction,
-      confidence: Math.round(confidence * 10) / 10
-    };
+    if (newHash === lastSignalHash) {
+      console.log('🔁 Duplicate sniper signal ignored');
+      setIsAnalyzing(false);
+      return;
+    }
+
+    setLastSignalHash(newHash);
+    await sendAutoNotification(direction, data.confidence, data);
+    setIsAnalyzing(false);
   };
 
-  const sendAutoNotification = async (analysis: {direction: 'BUY' | 'SELL', confidence: number}) => {
+  const sendAutoNotification = async (direction: 'BUY' | 'SELL', confidence: number, data: SignalData) => {
     try {
+      const support = data.key_levels.support?.[0] ?? 0;
+      const resistance = data.key_levels.resistance?.[0] ?? 0;
+      const entryPrice = direction === 'BUY' ? support : resistance;
+      const slPrice = direction === 'BUY' ? entryPrice - config.slPercentage * 0.0001 : entryPrice + config.slPercentage * 0.0001;
+      const tpPrice = direction === 'BUY' ? entryPrice + config.riskRewardRatio * Math.abs(entryPrice - slPrice) : entryPrice - config.riskRewardRatio * Math.abs(entryPrice - slPrice);
+
       const notificationData: NotificationResult = {
         success: true,
-        message: `SIGNAL: ${symbol} ${analysis.direction} (${analysis.confidence.toFixed(1)}%)`,
+        message: `SNIPER SIGNAL: ${symbol} ${direction} (${confidence.toFixed(1)}%)`,
         signal: {
-          symbol: symbol,
-          direction: analysis.direction,
-          entryPrice: 1.17942,
-          slPrice: 1.17800,
-          tpPrice: 1.18100,
+          symbol,
+          direction,
+          entryPrice: entryPrice || undefined,
+          slPrice: slPrice || undefined,
+          tpPrice: tpPrice || undefined,
           riskRewardRatio: config.riskRewardRatio,
         }
       };
 
-      setNotifications(prev => [notificationData, ...prev.slice(0, 9)]);
-      setSignalCount(prev => prev + 1);
+      setNotifications((prev) => [notificationData, ...prev.slice(0, 9)]);
+      setSignalCount((prev) => prev + 1);
 
-      // Browser notification
-      if (config.enableNotifications && 'Notification' in window) {
-        if (Notification.permission === 'granted') {
-          new Notification(`🚀 BANK SCALPER EA - ${analysis.direction} SIGNAL`, {
-            body: `${symbol}\nConfidence: ${analysis.confidence.toFixed(1)}%\nSignals: #${signalCount + 1}`,
-            icon: '/favicon.ico',
-            tag: 'auto-signal',
-            requireInteraction: false
-          });
-          playNotificationSound();
-        }
+      if (config.enableNotifications && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(`🚀 BANK SCALPER EA - ${direction} SIGNAL`, {
+          body: `${symbol}\nConfidence: ${confidence.toFixed(1)}%\n${data.recommendation}`,
+          icon: '/favicon.ico',
+          tag: 'auto-signal',
+          requireInteraction: false,
+        });
+        playNotificationSound();
       }
     } catch (error) {
       console.error('Auto notification error:', error);
@@ -216,13 +194,9 @@ const MT5Panel = ({ symbol, bias }: MT5PanelProps) => {
               <span className="text-[8px] text-muted-foreground">Symbol:</span>
               <span className="font-mono text-primary font-bold">{symbol}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[8px] text-muted-foreground">Interval:</span>
-              <span className="font-mono text-foreground">{config.analysisInterval}s</span>
-            </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-[8px] text-green-400 font-bold">SCANNING PATTERNS</span>
+              <span className="text-[8px] text-green-400 font-bold">SCANNER READY</span>
             </div>
           </div>
         </div>
@@ -231,17 +205,6 @@ const MT5Panel = ({ symbol, bias }: MT5PanelProps) => {
         {showSettings && (
           <div className="space-y-2 rounded border border-border bg-background/50 p-2">
             <span className="text-[8px] sm:text-[9px] tracking-wider text-muted-foreground">SIGNAL SETTINGS</span>
-            <div>
-              <label className="text-[7px] sm:text-[8px] tracking-wider text-muted-foreground">ANALYSIS INTERVAL (SECONDS)</label>
-              <input
-                type="number"
-                min="5"
-                max="300"
-                value={config.analysisInterval}
-                onChange={(e) => setConfig({ ...config, analysisInterval: parseInt(e.target.value) || 10 })}
-                className="mt-0.5 w-full rounded border border-border bg-input px-2 py-1 font-mono text-[9px] sm:text-[10px] text-foreground outline-none focus:border-primary"
-              />
-            </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[7px] sm:text-[8px] tracking-wider text-muted-foreground">RISK-REWARD RATIO</label>
