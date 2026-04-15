@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anyone can validate license keys" ON public.license_keys;

@@ -1,0 +1,137 @@
+# MT5 Bridge - Cloud Deployment Guide
+
+## Overview
+The MT5 Bridge can be deployed to the cloud using a Windows VPS since MetaTrader 5 requires Windows OS and GUI access.
+
+## Prerequisites
+- Windows VPS (AWS EC2 Windows, Azure VM, DigitalOcean Droplet, etc.)
+- MetaTrader 5 installed on the VPS
+- RDP access to the VPS for MT5 setup
+- Python 3.11+ installed on VPS
+
+## Quick Cloud Setup (AWS EC2 Windows)
+
+### 1. Launch Windows EC2 Instance
+```bash
+# Using AWS CLI
+aws ec2 run-instances \
+  --image-id ami-0c02fb55956c7d316 \  # Windows Server 2022
+  --instance-type t3.medium \
+  --key-name your-key-pair \
+  --security-groups mt5-bridge-sg
+```
+
+### 2. Configure Security Group
+- RDP (3389) - for setup
+- HTTP (8000) - for the bridge API
+- HTTPS (443) - optional for SSL
+
+### 3. Connect via RDP and Install Requirements
+```powershell
+# Install Python
+winget install Python.Python.3.11
+
+# Install MT5 (download from official site)
+# https://www.metatrader5.com/en/download
+
+# Clone/setup the bridge
+git clone <your-repo>
+cd mt5-bridge
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 4. Configure Auto-Start
+Create `start-bridge.ps1`:
+```powershell
+cd C:\path\to\mt5-bridge
+venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Set up Windows Task Scheduler to run on startup.
+
+### 5. Update Client Configuration
+In your React app, update the bridge URL in MT5Panel settings to your VPS public IP:
+```
+http://YOUR_VPS_PUBLIC_IP:8000
+```
+
+## Alternative: Docker Deployment (Experimental)
+
+For containerized deployment, you can try with Wine on Linux, but MT5 stability is not guaranteed.
+
+```dockerfile
+FROM python:3.11-slim
+
+# Install Wine and MT5 dependencies
+RUN apt-get update && apt-get install -y \
+    wine \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up virtual display
+ENV DISPLAY=:99
+
+# Copy application
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+# Start Xvfb and the app
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x24 & uvicorn main:app --host 0.0.0.0 --port 8000"]
+```
+
+## Security Considerations
+
+### 1. Network Security
+- Use VPC/security groups to restrict access
+- Consider VPN for additional security
+- Use HTTPS with SSL certificate
+
+### 2. Authentication
+- Implement API key authentication
+- Use environment variables for sensitive data
+- Regular credential rotation
+
+### 3. MT5 Security
+- Use read-only API keys when possible
+- Monitor account access logs
+- Set up alerts for unusual activity
+
+## Monitoring & Maintenance
+
+### Health Checks
+The bridge includes a `/health` endpoint for monitoring.
+
+### Logs
+```python
+# Add logging to main.py
+import logging
+logging.basicConfig(level=logging.INFO)
+```
+
+### Auto-Restart
+Configure your cloud provider's monitoring to restart the service if it fails.
+
+## Cost Optimization
+
+- Use spot instances for development/testing
+- Schedule shutdown during off-hours
+- Monitor resource usage and scale accordingly
+
+## Troubleshooting
+
+### Common Issues:
+1. **MT5 Connection Failed**: Ensure MT5 is running and logged in
+2. **Port Not Accessible**: Check firewall/security groups
+3. **Memory Issues**: MT5 can be resource-intensive, use appropriate instance size
+
+### Logs Location:
+- Application logs: Check uvicorn output
+- MT5 logs: Check MT5 terminal logs
+- System logs: Windows Event Viewer</content>
+<parameter name="filePath">c:\Users\pc\Downloads\BANK SCALPER EA\mt5-bridge\CLOUD_DEPLOYMENT.md

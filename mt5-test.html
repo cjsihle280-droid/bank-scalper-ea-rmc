@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BANK SCALPER EA - MT5 Bridge Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #555;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        button {
+            background: #003300;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #005500;
+        }
+        .success {
+            border-color: #00ff00;
+            background: #001100;
+        }
+        .error {
+            border-color: #ff0000;
+            background: #110000;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 BANK SCALPER EA</h1>
+            <h2>MT5 Bridge Connection Test</h2>
+        </div>
+
+        <div class="status">
+            <h3>🔗 Bridge Status</h3>
+            <div id="bridge-status">Checking...</div>
+        </div>
+
+        <div class="status">
+            <h3>🔐 MT5 Account Connection</h3>
+            <form id="mt5-form">
+                <div class="form-group">
+                    <label for="account">Account Number:</label>
+                    <input type="text" id="account" placeholder="Your MT5 account number" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" placeholder="Your MT5 password" required>
+                </div>
+                <div class="form-group">
+                    <label for="server">Server:</label>
+                    <input type="text" id="server" placeholder="Your broker server (e.g., ICMarkets-Demo)" required>
+                </div>
+                <button type="submit">🔗 Connect to MT5</button>
+            </form>
+            <div id="connection-result"></div>
+        </div>
+
+        <div class="status">
+            <h3>📊 Test Trade</h3>
+            <p><strong>⚠️ WARNING:</strong> This will place a real trade! Use a demo account first.</p>
+            <button id="test-trade" disabled>💰 Place Test Trade (EURUSD 0.01 lot)</button>
+            <div id="trade-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const BRIDGE_URL = 'http://localhost:8000';
+
+        // Check bridge status on load
+        async function checkBridgeStatus() {
+            try {
+                const response = await fetch(`${BRIDGE_URL}/health`);
+                const data = await response.json();
+                document.getElementById('bridge-status').innerHTML = `
+                    <span class="success">✅ Bridge Online</span><br>
+                    MT5 Version: ${data.mt5_version || 'Not connected'}<br>
+                    Timestamp: ${data.timestamp}
+                `;
+                return true;
+            } catch (error) {
+                document.getElementById('bridge-status').innerHTML = `
+                    <span class="error">❌ Bridge Offline</span><br>
+                    Error: ${error.message}<br>
+                    Make sure the MT5 bridge is running on port 8000
+                `;
+                return false;
+            }
+        }
+
+        // Handle MT5 connection
+        document.getElementById('mt5-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const account = document.getElementById('account').value;
+            const password = document.getElementById('password').value;
+            const server = document.getElementById('server').value;
+
+            const resultDiv = document.getElementById('connection-result');
+            resultDiv.innerHTML = '🔄 Connecting...';
+
+            try {
+                const response = await fetch(`${BRIDGE_URL}/connect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        account: account,
+                        password: password,
+                        server: server
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Connected successfully!<br>
+                            Account: ${data.account_info?.login}<br>
+                            Server: ${data.account_info?.server}<br>
+                            Balance: ${data.account_info?.balance} ${data.account_info?.currency}
+                        </div>
+                    `;
+                    document.getElementById('test-trade').disabled = false;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Connection failed: ${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        });
+
+        // Handle test trade
+        document.getElementById('test-trade').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('trade-result');
+            resultDiv.innerHTML = '🔄 Placing test trade...';
+
+            try {
+                const response = await fetch(`${BRIDGE_URL}/trade`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        account: document.getElementById('account').value,
+                        password: document.getElementById('password').value,
+                        server: document.getElementById('server').value,
+                        symbol: 'EURUSD',
+                        direction: 'BUY',
+                        lot_size: 0.01,
+                        sl_pips: 20,
+                        tp_pips: 40,
+                        comment: 'TEST TRADE - BANK SCALPER EA'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Trade executed successfully!<br>
+                            Order ID: ${data.order_id}<br>
+                            Check your MT5 terminal to confirm.
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Trade failed: ${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        });
+
+        // Check bridge status on page load
+        checkBridgeStatus();
+
+        // Refresh bridge status every 30 seconds
+        setInterval(checkBridgeStatus, 30000);
+    </script>
+</body>
+</html>

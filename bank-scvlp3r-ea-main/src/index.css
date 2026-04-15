@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 160 10% 6%;
+    --foreground: 150 60% 75%;
+
+    --card: 160 15% 8%;
+    --card-foreground: 150 60% 75%;
+
+    --popover: 160 15% 8%;
+    --popover-foreground: 150 60% 75%;
+
+    --primary: 145 80% 42%;
+    --primary-foreground: 160 10% 6%;
+
+    --secondary: 160 15% 12%;
+    --secondary-foreground: 150 60% 75%;
+
+    --muted: 160 10% 14%;
+    --muted-foreground: 150 15% 40%;
+
+    --accent: 145 80% 42%;
+    --accent-foreground: 160 10% 6%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 150 40% 18%;
+    --input: 150 20% 14%;
+    --ring: 145 80% 42%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 160 10% 6%;
+    --sidebar-foreground: 150 60% 75%;
+    --sidebar-primary: 145 80% 42%;
+    --sidebar-primary-foreground: 160 10% 6%;
+    --sidebar-accent: 160 15% 12%;
+    --sidebar-accent-foreground: 150 60% 75%;
+    --sidebar-border: 150 40% 18%;
+    --sidebar-ring: 145 80% 42%;
+
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Orbitron', sans-serif;
+
+    --glow-primary: 0 0 20px hsl(145 80% 42% / 0.4), 0 0 40px hsl(145 80% 42% / 0.2);
+    --glow-primary-strong: 0 0 20px hsl(145 80% 42% / 0.6), 0 0 60px hsl(145 80% 42% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-mono);
+  }
+}
+
+@keyframes matrix-fall {
+  0% {
+    transform: translateY(-100%);
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: var(--glow-primary);
+  }
+  50% {
+    box-shadow: var(--glow-primary-strong);
+  }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}

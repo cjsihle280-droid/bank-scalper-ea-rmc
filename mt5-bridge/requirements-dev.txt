@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""
+MT5 Bridge Test Script
+Tests the bridge API endpoints
+"""
+
+import requests
+import json
+import sys
+from typing import Dict, Any
+
+class BridgeTester:
+    def __init__(self, base_url: str = "http://localhost:8000", api_key: str = None):
+        self.base_url = base_url.rstrip('/')
+        self.api_key = api_key
+        self.session = requests.Session()
+        if api_key:
+            self.session.headers.update({"Authorization": f"Bearer {api_key}"})
+
+    def test_health(self) -> Dict[str, Any]:
+        """Test health endpoint"""
+        try:
+            response = self.session.get(f"{self.base_url}/health")
+            response.raise_for_status()
+            return {"status": "✅", "result": response.json()}
+        except Exception as e:
+            return {"status": "❌", "error": str(e)}
+
+    def test_connect(self, account: str, password: str, server: str) -> Dict[str, Any]:
+        """Test account connection"""
+        try:
+            payload = {
+                "account": account,
+                "password": password,
+                "server": server
+            }
+            response = self.session.post(f"{self.base_url}/connect", json=payload)
+            response.raise_for_status()
+            return {"status": "✅", "result": response.json()}
+        except Exception as e:
+            return {"status": "❌", "error": str(e)}
+
+    def test_trade(self, account: str, password: str, server: str,
+                  symbol: str = "EURUSD", direction: str = "BUY",
+                  lot_size: float = 0.01, sl_pips: int = 20, tp_pips: int = 40) -> Dict[str, Any]:
+        """Test trade placement (use demo account!)"""
+        try:
+            payload = {
+                "account": account,
+                "password": password,
+                "server": server,
+                "symbol": symbol,
+                "direction": direction,
+                "lot_size": lot_size,
+                "sl_pips": sl_pips,
+                "tp_pips": tp_pips,
+                "comment": "TEST TRADE - DO NOT USE REAL MONEY"
+            }
+            response = self.session.post(f"{self.base_url}/trade", json=payload)
+            response.raise_for_status()
+            return {"status": "✅", "result": response.json()}
+        except Exception as e:
+            return {"status": "❌", "error": str(e)}
+
+def main():
+    print("🧪 MT5 Bridge Test Suite")
+    print("=" * 50)
+
+    # Configuration
+    BASE_URL = "http://localhost:8000"
+    API_KEY = None  # Set if using authentication
+
+    # Account details (use demo account for testing!)
+    ACCOUNT = input("Enter MT5 account number: ").strip()
+    PASSWORD = input("Enter MT5 password: ").strip()
+    SERVER = input("Enter MT5 server: ").strip()
+
+    if not all([ACCOUNT, PASSWORD, SERVER]):
+        print("❌ All account details are required")
+        sys.exit(1)
+
+    tester = BridgeTester(BASE_URL, API_KEY)
+
+    # Test 1: Health Check
+    print("\n1. Testing Health Check...")
+    result = tester.test_health()
+    print(f"   {result['status']} Health check")
+    if 'result' in result:
+        print(f"   MT5 Version: {result['result'].get('mt5_version', 'N/A')}")
+
+    # Test 2: Account Connection
+    print("\n2. Testing Account Connection...")
+    result = tester.test_connect(ACCOUNT, PASSWORD, SERVER)
+    print(f"   {result['status']} Account connection")
+    if 'error' in result:
+        print(f"   Error: {result['error']}")
+        print("   ⚠️  Fix connection issues before proceeding")
+        sys.exit(1)
+
+    # Test 3: Trade Test (ONLY on demo account!)
+    print("\n3. Testing Trade Placement...")
+    print("   ⚠️  WARNING: This will place a REAL trade!")
+    confirm = input("   Are you using a DEMO account? (yes/no): ").lower().strip()
+    if confirm == 'yes':
+        result = tester.test_trade(ACCOUNT, PASSWORD, SERVER)
+        print(f"   {result['status']} Trade placement")
+        if 'result' in result:
+            print(f"   Order ID: {result['result'].get('order_id', 'N/A')}")
+        if 'error' in result:
+            print(f"   Error: {result['error']}")
+    else:
+        print("   ⏭️  Skipping trade test")
+
+    print("\n✅ Testing completed!")
+    print("\n📋 Next steps:")
+    print("1. Update your React app bridge URL if deployed remotely")
+    print("2. Configure API key authentication for production")
+    print("3. Set up monitoring and alerts")
+
+if __name__ == "__main__":
+    main()</content>
+<parameter name="filePath">c:\Users\pc\Downloads\BANK SCALPER EA\mt5-bridge\test_bridge.py
